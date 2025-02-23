@@ -2,45 +2,22 @@ from pytubefix import YouTube, Playlist
 from pytubefix.cli import on_progress
 import os
 
-pasta_base_musica = 'Musicas'
-pasta_base_video = 'Videos'
-    
-    
-
-            
-
-
-def baixar_video(url):
-    
-    yt = YouTube(url, on_progress_callback=on_progress)
-    print(yt.title)
+def baixar_video(url, diretorio, callback_progresso=None):
+    yt = YouTube(url, on_progress_callback=callback_progresso)
+    print(f"Baixando vídeo: {yt.title}")
     stream = yt.streams.get_highest_resolution()
-    stream.download()
+    stream.download(output_path=diretorio)  # Salva no diretório especificado
+    print("Download concluído!")
 
-    print("Download concluí do!")
-
-
-
-def baixar_audio(url):
-    try:    
-        yt = YouTube(url,on_progress_callback=on_progress)
-        
-        if not os.path.exists(pasta_base_musica):
-            os.mkdir(pasta_base_musica)
-            print(f'Pasta {pasta_base_musica} Criada com sucesso')
-        else:
-            print(f'Pasta {pasta_base_musica} Já existe')
-        
-        ys = yt.streams.get_audio_only()
-        ys.download(output_path=pasta_base_video)
-
-        print("Download concluí do!")
+def baixar_audio(url, diretorio, callback_progresso=None):
+    try:
+        yt = YouTube(url, on_progress_callback=callback_progresso)
+        print(f"Baixando áudio: {yt.title}")
+        stream = yt.streams.get_audio_only()
+        stream.download(output_path=diretorio)  # Salva no diretório especificado
+        print("Download concluído!")
     except Exception as e:
-        print("Deu erro")
-
-
-
-                  
+        print(f"Erro ao baixar áudio: {e}")
 
 def sanitizar_nome_pasta(nome):
     caracteres_invalidos = r'<>:"/\|?*[]'
@@ -48,51 +25,41 @@ def sanitizar_nome_pasta(nome):
         nome = nome.replace(char, '_')
     return nome
 
-def baixar_playlist(url):
+def baixar_playlist(url, diretorio, callback_progresso=None):
     try:
-        # Carrega a playlist
         pl = Playlist(url)
-        print(f"Playlist carregada: {pl.title}")
-
-        # Sanitiza o nome da playlist para garantir que seja válido como nome de pasta
+        print(f"Baixando playlist: {pl.title}")
         nome_playlist_sanitizado = sanitizar_nome_pasta(pl.title)
-        print(f"Nome da playlist sanitizado: {nome_playlist_sanitizado}")
-
-        # Define a pasta base onde as playlists serão salvas
-        pasta_base_musica = "Musicas"
+        pasta_playlist = os.path.join(diretorio, nome_playlist_sanitizado)  # Usa o diretório especificado
         
-        # Cria a pasta base se ela não existir
-        if not os.path.exists(pasta_base_musica):
-            os.mkdir(pasta_base_musica)
-            print(f'Pasta base "{pasta_base_musica}" criada com sucesso.')
-        else:
-            print(f'Pasta base "{pasta_base_musica}" já existe.')
-
-        # Cria o caminho completo para a pasta da playlist
-        pasta_playlist = os.path.join(pasta_base_musica, nome_playlist_sanitizado)
-        
-        # Cria a pasta da playlist se ela não existir
         if not os.path.exists(pasta_playlist):
             os.mkdir(pasta_playlist)
             print(f'Pasta da playlist "{pasta_playlist}" criada com sucesso.')
-        else:
-            print(f'Pasta da playlist "{pasta_playlist}" já existe.')
+        
+        total_videos = len(pl.videos)  # Número total de vídeos na playlist
+        progresso_por_video = 100 / total_videos  # Progresso que cada vídeo contribui para a barra
 
-        # Baixa cada vídeo da playlist como áudio
-        for video in pl.videos:
+        for i, video in enumerate(pl.videos):
             try:
-                print(f"Baixando: {video.title}")
-                ys = video.streams.get_audio_only()
-                ys.download(output_path=pasta_playlist)
+                print(f"Baixando: {video.title} ({i + 1}/{total_videos})")
+
+                # Função de callback para atualizar o progresso do vídeo atual
+                def atualizar_progresso_video(stream, chunk, bytes_remaining):
+                    if callback_progresso:
+                        # Calcula o progresso do vídeo atual
+                        tamanho_total = stream.filesize
+                        bytes_baixados = tamanho_total - bytes_remaining
+                        progresso_video = (bytes_baixados / tamanho_total) * progresso_por_video
+
+                        # Calcula o progresso total da playlist
+                        progresso_total = (i * progresso_por_video) + progresso_video
+                        callback_progresso(progresso_total)  # Atualiza a barra de progresso
+
+                video.register_on_progress_callback(atualizar_progresso_video)  # Registra o callback
+                stream = video.streams.get_audio_only()
+                stream.download(output_path=pasta_playlist)
                 print(f"Concluído: {video.title}")
             except Exception as e:
                 print(f"Erro ao baixar o vídeo {video.title}: {e}")
-
     except Exception as e:
         print(f"Erro ao processar a playlist: {e}")
-        
-        
-        
-        
-
-#teste("https://www.youtube.com/watch?v=nRe3xFeyhVY&list=PLdSUTU0oamrwC0PY7uUc0EJMKlWCiku43")
