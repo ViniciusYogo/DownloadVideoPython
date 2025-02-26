@@ -55,7 +55,7 @@ def baixar():
 
 # Cria a janela principal
 janela = Tk()
-janela.title("ViniDownloads")
+janela.title("YogoTube")
 
 # Definir o ícone da janela e da barra de tarefas
 icone_path = "icone.ico"  # Substitua pelo caminho correto do seu ícone
